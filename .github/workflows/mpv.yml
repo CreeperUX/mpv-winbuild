@@ -394,6 +394,10 @@ jobs:
           grep -n 'PATCH_COMMAND' packages/libplacebo.cmake packages/mpv.cmake
           grep -q 'libplacebo-\*\.patch' packages/libplacebo.cmake
           grep -q 'mpv-\*\.patch' packages/mpv.cmake
+          # curl master calls ASN1_STRING_get_length for OpenSSL >= 4.1, but the OpenSSL 4.1-dev commit the build
+          # pins predates it: pin curl to 8.22.0 (the last release without it) until the two line up again.
+          grep -q 'GIT_RESET' packages/curl.cmake || sed -i 's|^\(\s*\)GIT_REPOSITORY https://github.com/curl/curl.git|&\n\1GIT_RESET 01346829096c61b372692f6dc43ffa778c6caccd|' packages/curl.cmake
+          grep -n 'GIT_RESET' packages/curl.cmake
       - name: Build
         id: build
         shell: bash
