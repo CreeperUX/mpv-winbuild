@@ -1,0 +1,77 @@
+From 498ea612a8ca97e1e31c0b781ecc1610ea081f45 Mon Sep 17 00:00:00 2001
+From: CreeperUX <CreeperUX@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 18:25:38 +0200
+Subject: [PATCH] vo_gpu_next: d3d11: add --d3d11-hdr-metadata
+
+Allows disabling HDR10 static metadata on the swap chain while keeping the
+HDR color space, via libplacebo's pl_d3d11_swapchain_params
+.disable_hdr_metadata. Avoids the display re-syncing when HDR playback
+starts with Windows' "Use Dolby Vision mode".
+---
+ DOCS/man/options.rst      | 11 +++++++++++
+ video/out/d3d11/context.c |  6 ++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/DOCS/man/options.rst b/DOCS/man/options.rst
+index 86892bf..77e9e06 100644
+--- a/DOCS/man/options.rst
++++ b/DOCS/man/options.rst
+@@ -6548,6 +6548,17 @@ them.
+         Swap chain color space configuration is only available from an API
+         available from Windows 10. Thus on older systems it will not work.
+ 
++``--d3d11-hdr-metadata=<yes|no>``
++    Attach HDR10 static metadata to the swap chain when outputting HDR
++    (default: yes). With ``no``, the swap chain still gets an HDR color space,
++    but no metadata is passed to Windows; combine it with
++    ``--target-colorspace-hint-mode=target`` so the content is tone mapped to
++    the display. Microsoft no longer recommends that applications set this
++    metadata, and with Windows' "Use Dolby Vision mode" it makes the display
++    switch modes (an HDMI re-sync) whenever HDR playback starts.
++
++    Only relevant for ``--vo=gpu-next``.
++
+ ``--d3d11va-zero-copy=<yes|no>``
+     By default, when using hardware decoding with ``--gpu-api=d3d11``, the
+     video image will be copied (GPU-to-GPU) from the decoder surface to a
+diff --git a/video/out/d3d11/context.c b/video/out/d3d11/context.c
+index a31994b..c38c3ba 100644
+--- a/video/out/d3d11/context.c
++++ b/video/out/d3d11/context.c
+@@ -41,6 +41,7 @@ struct d3d11_opts {
+     int color_space;
+     bool exclusive_fs;
+     int output_mode;
++    bool hdr_metadata;
+ };
+ 
+ #define OPT_BASE_STRUCT struct d3d11_opts
+@@ -94,6 +95,8 @@ const struct m_sub_options d3d11_conf = {
+             {"composition", 1}),
+             .flags = UPDATE_VO,
+         },
++        {"d3d11-hdr-metadata", OPT_BOOL(hdr_metadata),
++            .flags = UPDATE_VO},
+         {0}
+     },
+     .defaults = &(const struct d3d11_opts) {
+@@ -105,6 +108,7 @@ const struct m_sub_options d3d11_conf = {
+         .output_format = DXGI_FORMAT_UNKNOWN,
+         .color_space = -1,
+         .output_mode = -1,
++        .hdr_metadata = true,
+     },
+     .size = sizeof(struct d3d11_opts)
+ };
+@@ -665,6 +669,8 @@ void ra_d3d11_ctx_set_swapchain_params(struct ra_ctx *ra,
+     default:
+         params->alpha_bits = ra->opts.want_alpha ? 8 : 0;
+     };
++
++    params->disable_hdr_metadata = !p->opts->hdr_metadata;
+ }
+ #endif
+ 
+-- 
+2.54.0.windows.1
+

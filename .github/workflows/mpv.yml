@@ -378,6 +378,22 @@ jobs:
           }
           set -x
           ${{ inputs.command }}
+      - name: Apply custom libplacebo/mpv patches
+        shell: bash
+        run: |
+          # Patches in custom/ are applied to the libplacebo and mpv sources via PATCH_COMMAND;
+          # a patch that doesn't apply fails the build instead of being skipped.
+          set -euxo pipefail
+          cp custom/libplacebo-*.patch custom/mpv-*.patch mpv-winbuild-cmake/packages/
+          cd mpv-winbuild-cmake
+          grep -q 'mpv-\*\.patch' packages/mpv.cmake || git am --3way ../patch_pr/0000-mpv-add-patch.patch
+          if ! grep -q 'libplacebo-\*\.patch' packages/libplacebo.cmake; then
+            sed -i 's|GIT_CLONE_FLAGS "--filter=tree:0"|GIT_CLONE_FLAGS ""|' packages/libplacebo.cmake
+            sed -i 's|^\(\s*\)GIT_SUBMODULES ""|&\n\1PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/libplacebo-*.patch|' packages/libplacebo.cmake
+          fi
+          grep -n 'PATCH_COMMAND' packages/libplacebo.cmake packages/mpv.cmake
+          grep -q 'libplacebo-\*\.patch' packages/libplacebo.cmake
+          grep -q 'mpv-\*\.patch' packages/mpv.cmake
       - name: Build
         id: build
         shell: bash
